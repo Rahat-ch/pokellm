@@ -1,5 +1,9 @@
 import type { LLMAdapter, LLMConfig } from './types.js';
 import { ClaudeAdapter } from './adapters/ClaudeAdapter.js';
+import { OpenAIAdapter } from './adapters/OpenAIAdapter.js';
+import { GeminiAdapter } from './adapters/GeminiAdapter.js';
+import { GrokAdapter } from './adapters/GrokAdapter.js';
+import { DeepSeekAdapter } from './adapters/DeepSeekAdapter.js';
 
 /**
  * Factory to create LLM adapters based on provider configuration
@@ -11,20 +15,16 @@ export class AdapterFactory {
         return new ClaudeAdapter(llmConfig.model, llmConfig.temperature);
 
       case 'openai':
-        // TODO: Implement OpenAI adapter
-        throw new Error('OpenAI adapter not yet implemented');
+        return new OpenAIAdapter(llmConfig.model, llmConfig.temperature);
 
       case 'google':
-        // TODO: Implement Gemini adapter
-        throw new Error('Google/Gemini adapter not yet implemented');
+        return new GeminiAdapter(llmConfig.model, llmConfig.temperature);
 
       case 'xai':
-        // TODO: Implement Grok adapter
-        throw new Error('xAI/Grok adapter not yet implemented');
+        return new GrokAdapter(llmConfig.model, llmConfig.temperature);
 
       case 'deepseek':
-        // TODO: Implement DeepSeek adapter
-        throw new Error('DeepSeek adapter not yet implemented');
+        return new DeepSeekAdapter(llmConfig.model, llmConfig.temperature);
 
       default:
         throw new Error(`Unknown LLM provider: ${llmConfig.provider}`);
@@ -57,5 +57,25 @@ export class AdapterFactory {
   static getAvailableProviders(): string[] {
     const providers = ['claude', 'openai', 'google', 'xai', 'deepseek'];
     return providers.filter((p) => this.isAvailable(p));
+  }
+
+  /**
+   * Get default model for a provider
+   */
+  static getDefaultModel(provider: string): string {
+    switch (provider) {
+      case 'claude':
+        return 'claude-sonnet-4-20250514';
+      case 'openai':
+        return 'gpt-4o';
+      case 'google':
+        return 'gemini-1.5-flash';
+      case 'xai':
+        return 'grok-2-latest';
+      case 'deepseek':
+        return 'deepseek-chat';
+      default:
+        throw new Error(`Unknown provider: ${provider}`);
+    }
   }
 }

@@ -4,6 +4,13 @@ import { LLMPlayer } from './LLMPlayer.js';
 import { AdapterFactory } from '../llm/AdapterFactory.js';
 import type { LLMConfig, LLMAdapter } from '../llm/types.js';
 import { config } from '../config.js';
+import {
+  emitBattleStarted,
+  emitBattleUpdate,
+  emitBattleThinking,
+  emitBattleDecision,
+  emitBattleEnd,
+} from '../server/socket.js';
 
 export interface BattleStatus {
   active: boolean;
@@ -57,15 +64,37 @@ class ActiveBattle extends EventEmitter {
       p2Name: `${this.p2Config.provider}/${this.p2Config.model}`,
     });
 
+    // Emit battle started to socket clients
+    emitBattleStarted({
+      battleId: this.battleId,
+      p1: { provider: this.p1Config.provider, model: this.p1Config.model },
+      p2: { provider: this.p2Config.provider, model: this.p2Config.model },
+      format: this.format,
+    });
+
     // Create LLM players
     this.p1Player = new LLMPlayer(streams.p1, {
       adapter: this.p1Adapter,
       format: this.format,
       slot: 'p1',
-      onThinking: () => this.emit('thinking', 'p1'),
+      onThinking: () => {
+        this.emit('thinking', 'p1');
+        emitBattleThinking({
+          battleId: this.battleId,
+          player: 'p1',
+          startTime: Date.now(),
+        });
+      },
       onDecision: (choice, reasoning, time) => {
         this.turn = this.p1Player?.getTurn() || this.turn;
         this.emit('decision', { player: 'p1', choice, reasoning, time });
+        emitBattleDecision({
+          battleId: this.battleId,
+          player: 'p1',
+          choice,
+          reasoning,
+          time: time || 0,
+        });
       },
     });
 
@@ -73,10 +102,24 @@ class ActiveBattle extends EventEmitter {
       adapter: this.p2Adapter,
       format: this.format,
       slot: 'p2',
-      onThinking: () => this.emit('thinking', 'p2'),
+      onThinking: () => {
+        this.emit('thinking', 'p2');
+        emitBattleThinking({
+          battleId: this.battleId,
+          player: 'p2',
+          startTime: Date.now(),
+        });
+      },
       onDecision: (choice, reasoning, time) => {
         this.turn = Math.max(this.turn, this.p2Player?.getTurn() || 0);
         this.emit('decision', { player: 'p2', choice, reasoning, time });
+        emitBattleDecision({
+          battleId: this.battleId,
+          player: 'p2',
+          choice,
+          reasoning,
+          time: time || 0,
+        });
       },
     });
 
@@ -84,6 +127,7 @@ class ActiveBattle extends EventEmitter {
     this.bridge.on('update', (chunk: string) => {
       this.battleLog.push(chunk);
       this.emit('update', chunk);
+      emitBattleUpdate({ battleId: this.battleId, chunk });
 
       // Log important battle events
       this.logBattleEvents(chunk);
@@ -92,6 +136,12 @@ class ActiveBattle extends EventEmitter {
     this.bridge.on('end', (result: { winner: string | null }) => {
       this.winner = result.winner;
       this.emit('end', result);
+      emitBattleEnd({
+        battleId: this.battleId,
+        winner: result.winner,
+        p1: { provider: this.p1Config.provider, model: this.p1Config.model },
+        p2: { provider: this.p2Config.provider, model: this.p2Config.model },
+      });
     });
 
     // Start both players (they will listen for requests)

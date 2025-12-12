@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { battleManager } from '../../battle/BattleManager.js';
+import { AdapterFactory } from '../../llm/AdapterFactory.js';
 import type { LLMConfig } from '../../llm/types.js';
 
 interface StartBattleBody {
