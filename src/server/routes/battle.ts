@@ -3,6 +3,30 @@ import { battleManager } from '../../battle/BattleManager.js';
 import { AdapterFactory } from '../../llm/AdapterFactory.js';
 import type { LLMConfig } from '../../llm/types.js';
 
+// Provider configurations for the frontend
+const PROVIDER_INFO = {
+  claude: {
+    name: 'Claude',
+    models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022'],
+  },
+  openai: {
+    name: 'OpenAI',
+    models: ['gpt-4o', 'gpt-4o-mini'],
+  },
+  google: {
+    name: 'Gemini',
+    models: ['gemini-2.0-flash', 'gemini-1.5-flash'],
+  },
+  xai: {
+    name: 'Grok',
+    models: ['grok-3-fast', 'grok-2-latest'],
+  },
+  deepseek: {
+    name: 'DeepSeek',
+    models: ['deepseek-chat'],
+  },
+};
+
 interface StartBattleBody {
   p1: LLMConfig;
   p2: LLMConfig;
@@ -60,5 +84,21 @@ export const battleRoutes: FastifyPluginAsync = async (app) => {
 
     await battle.forceEnd();
     return { status: 'ended' };
+  });
+
+  // Get available providers and models
+  app.get('/providers', async () => {
+    const available = AdapterFactory.getAvailableProviders();
+
+    const providers = available.map((providerId) => ({
+      id: providerId,
+      name: PROVIDER_INFO[providerId as keyof typeof PROVIDER_INFO]?.name || providerId,
+      models: PROVIDER_INFO[providerId as keyof typeof PROVIDER_INFO]?.models || [
+        AdapterFactory.getDefaultModel(providerId),
+      ],
+      defaultModel: AdapterFactory.getDefaultModel(providerId),
+    }));
+
+    return { providers };
   });
 };

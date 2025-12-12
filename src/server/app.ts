@@ -2,6 +2,8 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { config } from '../config.js';
 import { battleRoutes } from './routes/battle.js';
+import { scoreboardRoutes } from './routes/scoreboard.js';
+import { historyRoutes } from './routes/history.js';
 import { initializeSocket, setBattleStatusGetter, getSpectatorCount } from './socket.js';
 import { battleManager } from '../battle/BattleManager.js';
 
@@ -22,6 +24,8 @@ export async function buildApp() {
 
   // Register routes
   await app.register(battleRoutes, { prefix: '/api/battle' });
+  await app.register(scoreboardRoutes, { prefix: '/api/scoreboard' });
+  await app.register(historyRoutes, { prefix: '/api/history' });
 
   // Initialize Socket.io after app is ready
   app.addHook('onReady', async () => {

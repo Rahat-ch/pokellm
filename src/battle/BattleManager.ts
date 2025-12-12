@@ -12,6 +12,7 @@ import {
   emitBattleDecision,
   emitBattleEnd,
 } from '../server/socket.js';
+import { saveBattle } from '../db/client.js';
 
 export interface BattleStatus {
   active: boolean;
@@ -27,6 +28,7 @@ class ActiveBattle extends EventEmitter {
   public battleId: string;
   public turn = 0;
   public winner: string | null = null;
+  public startedAt: Date;
   private bridge: SimulatorBridge;
   private p1Adapter: LLMAdapter;
   private p2Adapter: LLMAdapter;
@@ -48,6 +50,7 @@ class ActiveBattle extends EventEmitter {
     this.p1Config = p1Config;
     this.p2Config = p2Config;
     this.format = format;
+    this.startedAt = new Date();
     this.bridge = new SimulatorBridge();
 
     // Create adapters
@@ -338,9 +341,49 @@ class BattleManager {
 
     this.activeBattle = new ActiveBattle(battleId, p1, p2, battleFormat);
 
-    // Listen for battle end to clean up
-    this.activeBattle.on('end', () => {
+    // Listen for battle end to save and clean up
+    this.activeBattle.on('end', async (result: { winner: string | null }) => {
       console.log(`Battle ${battleId} ended`);
+
+      // Determine winner side and details
+      let winnerSide: string | null = null;
+      let winnerProvider: string | null = null;
+      let winnerModel: string | null = null;
+
+      if (result.winner) {
+        // Winner string contains the player name like "claude/claude-sonnet-4-20250514"
+        if (result.winner.includes(p1.provider)) {
+          winnerSide = 'p1';
+          winnerProvider = p1.provider;
+          winnerModel = p1.model;
+        } else {
+          winnerSide = 'p2';
+          winnerProvider = p2.provider;
+          winnerModel = p2.model;
+        }
+      }
+
+      // Save to database
+      try {
+        await saveBattle({
+          battle_id: battleId,
+          format: battleFormat,
+          p1_provider: p1.provider,
+          p1_model: p1.model,
+          p2_provider: p2.provider,
+          p2_model: p2.model,
+          winner_side: winnerSide,
+          winner_provider: winnerProvider,
+          winner_model: winnerModel,
+          total_turns: this.activeBattle?.turn || 0,
+          started_at: this.activeBattle?.startedAt || new Date(),
+          ended_at: new Date(),
+          battle_log: this.activeBattle?.getLog() || [],
+        });
+        console.log(`Battle ${battleId} saved to database`);
+      } catch (error) {
+        console.error(`Failed to save battle ${battleId}:`, error);
+      }
     });
 
     // Start the battle
