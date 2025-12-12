@@ -87,7 +87,7 @@ async function main() {
   console.log('');
   console.log('   curl -X POST http://localhost:3000/api/battle/start \\');
   console.log('     -H "Content-Type: application/json" \\');
-  console.log('     -d \'{"p1": {"provider": "claude", "model": "claude-sonnet-4-20250514"}, "p2": {"provider": "claude", "model": "claude-sonnet-4-20250514"}}\'');
+  console.log('     -d \'{"p1": {"provider": "claude", "model": "claude-sonnet-4-20250514"}, "p2": {"provider": "openai", "model": "gpt-4o"}}\'');
   console.log('');
   console.log('   3. Watch for socket events below...\n');
 

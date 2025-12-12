@@ -69,9 +69,9 @@ export class AdapterFactory {
       case 'openai':
         return 'gpt-4o';
       case 'google':
-        return 'gemini-1.5-flash';
+        return 'gemini-2.0-flash';
       case 'xai':
-        return 'grok-2-latest';
+        return 'grok-3-fast';
       case 'deepseek':
         return 'deepseek-chat';
       default:
