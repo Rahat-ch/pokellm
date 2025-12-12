@@ -13,6 +13,8 @@ export interface LLMPlayerOptions {
   format: string;
   slot: 'p1' | 'p2';
   onThinking?: () => void;
+  onReasoningChunk?: (chunk: string) => void;
+  onReasoningDone?: () => void;
   onDecision?: (choice: string, reasoning?: string, decisionTime?: number) => void;
   onError?: (error: Error) => void;
 }
@@ -27,6 +29,8 @@ export class LLMPlayer extends BattlePlayer {
   private slot: 'p1' | 'p2';
   private turn = 0;
   private onThinking?: () => void;
+  private onReasoningChunk?: (chunk: string) => void;
+  private onReasoningDone?: () => void;
   private onDecision?: (choice: string, reasoning?: string, decisionTime?: number) => void;
   private onError?: (error: Error) => void;
 
@@ -39,6 +43,8 @@ export class LLMPlayer extends BattlePlayer {
     this.format = options.format;
     this.slot = options.slot;
     this.onThinking = options.onThinking;
+    this.onReasoningChunk = options.onReasoningChunk;
+    this.onReasoningDone = options.onReasoningDone;
     this.onDecision = options.onDecision;
     this.onError = options.onError;
   }
@@ -100,11 +106,29 @@ export class LLMPlayer extends BattlePlayer {
         format: this.format,
       };
 
+      // Use streaming if available and we have a chunk handler
+      const useStreaming = this.adapter.decideWithStreaming && this.onReasoningChunk;
+
       // Get LLM decision with timeout
-      const response = await Promise.race([
-        this.adapter.decide(context),
-        this.timeout(config.battle.llmTimeout),
-      ]);
+      let response;
+      if (useStreaming) {
+        console.log(`[${this.slot}] Using streaming mode...`);
+        response = await Promise.race([
+          this.adapter.decideWithStreaming!(context, (chunk) => {
+            this.onReasoningChunk!(chunk);
+          }),
+          this.timeout(config.battle.llmTimeout),
+        ]);
+        // Signal that streaming is done
+        if (this.onReasoningDone) {
+          this.onReasoningDone();
+        }
+      } else {
+        response = await Promise.race([
+          this.adapter.decide(context),
+          this.timeout(config.battle.llmTimeout),
+        ]);
+      }
 
       if (!response) {
         throw new Error('LLM timeout');

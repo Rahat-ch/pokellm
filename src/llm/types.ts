@@ -23,5 +23,13 @@ export interface LLMAdapter {
   provider: LLMProvider;
   model: string;
   decide(context: BattleContext): Promise<LLMResponse>;
+  /**
+   * Stream reasoning as it's generated, calling onChunk for each piece.
+   * Returns the final response when complete.
+   */
+  decideWithStreaming?(
+    context: BattleContext,
+    onChunk: (chunk: string) => void
+  ): Promise<LLMResponse>;
   destroy(): void;
 }

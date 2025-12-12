@@ -30,6 +30,31 @@ Example good responses:
 "move 2
 Switching to resist their likely attack."`;
 
+const STREAMING_SYSTEM_PROMPT = `You are an expert Pokemon battle AI competing in a Pokemon battle. THINK OUT LOUD as you analyze the situation.
+
+RESPONSE FORMAT:
+1. First, briefly analyze the current situation (type matchups, HP, threats)
+2. Consider 2-3 options and their pros/cons
+3. Make your final decision
+4. End with EXACTLY one of these on its own line:
+   - ACTION: move N (where N is 1-4)
+   - ACTION: switch N (where N is 2-6)
+   - ACTION: default (only for team preview)
+
+Example response:
+"My Charizard (Fire/Flying) is facing their Blastoise (Water). I'm at a type disadvantage here.
+
+Options:
+1. Switch to Venusaur - resists Water, can threaten with Grass moves
+2. Use Solar Beam - super effective but risky if they switch
+3. Stay and use Air Slash - neutral damage, might flinch
+
+Given their HP advantage, switching is safest to preserve Charizard.
+
+ACTION: switch 3"
+
+Be strategic and explain your reasoning clearly.`;
+
 export class OpenAIAdapter implements LLMAdapter {
   provider = 'openai' as const;
   model: string;
@@ -87,6 +112,67 @@ export class OpenAIAdapter implements LLMAdapter {
       text: command,
       reasoning,
       tokensUsed: response.usage?.total_tokens,
+    };
+  }
+
+  async decideWithStreaming(
+    context: BattleContext,
+    onChunk: (chunk: string) => void
+  ): Promise<LLMResponse> {
+    // Format the battle state
+    let prompt: string;
+    if (context.request.teamPreview) {
+      prompt = BattleFormatter.formatTeamPreview(context.request);
+    } else if (context.request.forceSwitch) {
+      prompt = BattleFormatter.formatForceSwitch(context.request, context.battleLog, context.turn);
+    } else {
+      prompt = BattleFormatter.formatRequest(context.request, context.battleLog, context.turn);
+    }
+
+    const stream = await this.client.chat.completions.create({
+      model: this.model,
+      max_tokens: 500,
+      temperature: this.temperature,
+      stream: true,
+      messages: [
+        {
+          role: 'system',
+          content: STREAMING_SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    });
+
+    let fullText = '';
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      if (content) {
+        fullText += content;
+        onChunk(content);
+      }
+    }
+
+    // Parse the ACTION from the response
+    const actionMatch = fullText.match(/ACTION:\s*(move|switch|default)\s*(\d*)/i);
+    let command: string;
+
+    if (actionMatch) {
+      const action = actionMatch[1].toLowerCase();
+      const num = actionMatch[2];
+      command = num ? `${action} ${num}` : action;
+    } else {
+      // Fallback: try to find move/switch pattern
+      const fallbackMatch = fullText.match(/\b(move|switch)\s+(\d+)\b/i);
+      command = fallbackMatch ? `${fallbackMatch[1].toLowerCase()} ${fallbackMatch[2]}` : 'default';
+    }
+
+    return {
+      text: command,
+      reasoning: fullText,
     };
   }
 

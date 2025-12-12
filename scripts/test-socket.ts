@@ -41,11 +41,22 @@ async function main() {
     console.log(`\n🤔 [battle:thinking] ${data.player} is thinking...`);
   });
 
-  socket.on('battle:decision', (data) => {
-    console.log(`\n✅ [battle:decision] ${data.player}: ${data.choice} (${data.time}ms)`);
-    if (data.reasoning) {
-      console.log(`   Reasoning: ${data.reasoning.substring(0, 100)}...`);
+  // Track streaming reasoning per player
+  const reasoning: { p1: string; p2: string } = { p1: '', p2: '' };
+
+  socket.on('battle:reasoning', (data) => {
+    if (data.done) {
+      // Reasoning complete, clear buffer
+      reasoning[data.player as 'p1' | 'p2'] = '';
+    } else {
+      // Append chunk and print it inline (no newline for streaming effect)
+      reasoning[data.player as 'p1' | 'p2'] += data.chunk;
+      process.stdout.write(data.chunk);
     }
+  });
+
+  socket.on('battle:decision', (data) => {
+    console.log(`\n\n✅ [battle:decision] ${data.player}: ${data.choice} (${data.time}ms)`);
   });
 
   socket.on('battle:update', (data) => {

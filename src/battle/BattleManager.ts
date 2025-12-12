@@ -8,6 +8,7 @@ import {
   emitBattleStarted,
   emitBattleUpdate,
   emitBattleThinking,
+  emitBattleReasoning,
   emitBattleDecision,
   emitBattleEnd,
 } from '../server/socket.js';
@@ -85,6 +86,22 @@ class ActiveBattle extends EventEmitter {
           startTime: Date.now(),
         });
       },
+      onReasoningChunk: (chunk) => {
+        emitBattleReasoning({
+          battleId: this.battleId,
+          player: 'p1',
+          chunk,
+          done: false,
+        });
+      },
+      onReasoningDone: () => {
+        emitBattleReasoning({
+          battleId: this.battleId,
+          player: 'p1',
+          chunk: '',
+          done: true,
+        });
+      },
       onDecision: (choice, reasoning, time) => {
         this.turn = this.p1Player?.getTurn() || this.turn;
         this.emit('decision', { player: 'p1', choice, reasoning, time });
@@ -108,6 +125,22 @@ class ActiveBattle extends EventEmitter {
           battleId: this.battleId,
           player: 'p2',
           startTime: Date.now(),
+        });
+      },
+      onReasoningChunk: (chunk) => {
+        emitBattleReasoning({
+          battleId: this.battleId,
+          player: 'p2',
+          chunk,
+          done: false,
+        });
+      },
+      onReasoningDone: () => {
+        emitBattleReasoning({
+          battleId: this.battleId,
+          player: 'p2',
+          chunk: '',
+          done: true,
         });
       },
       onDecision: (choice, reasoning, time) => {
