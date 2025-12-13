@@ -38,8 +38,8 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-# Health check - uses wget since it's available in alpine
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+# Health check - uses wget with 127.0.0.1 to force IPv4
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
 
 CMD ["node", "dist/index.js"]
