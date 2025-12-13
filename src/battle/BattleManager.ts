@@ -22,6 +22,7 @@ export interface BattleStatus {
   p2?: { provider: string; model: string };
   winner?: string | null;
   spectatorCount?: number;
+  battleLog?: string[];  // Protocol history for late joiners
 }
 
 class ActiveBattle extends EventEmitter {
@@ -68,15 +69,7 @@ class ActiveBattle extends EventEmitter {
       p2Name: `${this.p2Config.provider}/${this.p2Config.model}`,
     });
 
-    // Emit battle started to socket clients
-    emitBattleStarted({
-      battleId: this.battleId,
-      p1: { provider: this.p1Config.provider, model: this.p1Config.model },
-      p2: { provider: this.p2Config.provider, model: this.p2Config.model },
-      format: this.format,
-    });
-
-    // Create LLM players
+    // Create LLM players FIRST (they need to be ready before battle events flow)
     this.p1Player = new LLMPlayer(streams.p1, {
       adapter: this.p1Adapter,
       format: this.format,
@@ -159,7 +152,7 @@ class ActiveBattle extends EventEmitter {
       },
     });
 
-    // Listen for battle updates
+    // Listen for battle updates (set up BEFORE waiting for initial state)
     this.bridge.on('update', (chunk: string) => {
       this.battleLog.push(chunk);
       this.emit('update', chunk);
@@ -178,6 +171,19 @@ class ActiveBattle extends EventEmitter {
         p1: { provider: this.p1Config.provider, model: this.p1Config.model },
         p2: { provider: this.p2Config.provider, model: this.p2Config.model },
       });
+    });
+
+    // WAIT for initial battle state (switch events) before emitting started
+    // This ensures frontend receives Pokemon data immediately
+    const initialLog = await this.bridge.getInitialState();
+
+    // NOW emit battle started with initial state
+    emitBattleStarted({
+      battleId: this.battleId,
+      p1: { provider: this.p1Config.provider, model: this.p1Config.model },
+      p2: { provider: this.p2Config.provider, model: this.p2Config.model },
+      format: this.format,
+      initialLog,
     });
 
     // Start both players (they will listen for requests)
@@ -320,6 +326,7 @@ class ActiveBattle extends EventEmitter {
       p1: { provider: this.p1Config.provider, model: this.p1Config.model },
       p2: { provider: this.p2Config.provider, model: this.p2Config.model },
       winner: this.winner,
+      battleLog: this.battleLog,  // Include protocol history for late joiners
     };
   }
 }

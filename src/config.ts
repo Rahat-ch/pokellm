@@ -27,7 +27,7 @@ export const config = {
   },
 
   battle: {
-    format: 'gen9randombattle',
+    format: 'gen6randombattle', // ORAS format - Gen 1-6 + Mega Evolutions
     llmTimeout: 30000, // 30 seconds timeout for LLM responses
   },
 };

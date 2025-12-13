@@ -8,6 +8,7 @@ export interface BattleStartedPayload {
   p1: { provider: string; model: string };
   p2: { provider: string; model: string };
   format: string;
+  initialLog?: string[];  // Initial protocol chunks with Pokemon data
 }
 
 export interface BattleUpdatePayload {
@@ -51,6 +52,7 @@ export interface BattleStatusPayload {
   p2?: { provider: string; model: string };
   winner?: string | null;
   spectatorCount?: number;
+  battleLog?: string[];  // Protocol history for late joiners
 }
 
 /**

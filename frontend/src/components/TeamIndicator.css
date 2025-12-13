@@ -1,0 +1,64 @@
+.team-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+  backdrop-filter: blur(4px);
+}
+
+.team-indicator.player {
+  /* Positioned by parent */
+}
+
+.team-indicator.opponent {
+  /* Positioned by parent */
+}
+
+.team-slot {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.team-slot.active {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+.team-slot.fainted {
+  opacity: 0.4;
+}
+
+.team-slot.empty {
+  opacity: 0.3;
+}
+
+.mini-sprite {
+  width: 40px;
+  height: 30px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.5));
+}
+
+.team-slot.fainted .mini-sprite {
+  filter: grayscale(100%) brightness(0.5) drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.5));
+}
+
+.pokeball-icon {
+  filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+.pokeball-icon.fainted {
+  filter: grayscale(100%) brightness(0.6);
+}
+
+.pokeball-icon.empty {
+  opacity: 0.5;
+}

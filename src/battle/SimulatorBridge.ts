@@ -29,6 +29,12 @@ export class SimulatorBridge extends EventEmitter {
   private battleLog: string[] = [];
   private _ended = false;
 
+  // Initial state tracking - resolves when first switch events arrive
+  private initialStateReady!: Promise<string[]>;
+  private resolveInitialState!: (chunks: string[]) => void;
+  private initialChunks: string[] = [];
+  private initialStateResolved = false;
+
   get ended() {
     return this._ended;
   }
@@ -41,6 +47,13 @@ export class SimulatorBridge extends EventEmitter {
     this.streams = getPlayerStreams(this.battleStream) as PlayerStreams;
     this.battleLog = [];
     this._ended = false;
+
+    // Reset initial state tracking
+    this.initialChunks = [];
+    this.initialStateResolved = false;
+    this.initialStateReady = new Promise((resolve) => {
+      this.resolveInitialState = resolve;
+    });
 
     // Generate random teams
     const p1Team = Teams.pack(Teams.generate(battleConfig.format));
@@ -67,6 +80,16 @@ export class SimulatorBridge extends EventEmitter {
         this.battleLog.push(chunk);
         this.emit('update', chunk);
 
+        // Collect initial chunks until we see switch events (Pokemon appearing)
+        if (!this.initialStateResolved) {
+          this.initialChunks.push(chunk);
+          // Switch events indicate Pokemon have entered the battle
+          if (chunk.includes('|switch|') || chunk.includes('|turn|')) {
+            this.initialStateResolved = true;
+            this.resolveInitialState(this.initialChunks);
+          }
+        }
+
         // Check for battle end
         if (chunk.includes('|win|') || chunk.includes('|tie|')) {
           this._ended = true;
@@ -88,6 +111,14 @@ export class SimulatorBridge extends EventEmitter {
 
   getLog(): string[] {
     return this.battleLog;
+  }
+
+  /**
+   * Wait for initial battle state (switch events) to be ready
+   * This allows callers to wait until Pokemon have entered the battle
+   */
+  async getInitialState(): Promise<string[]> {
+    return this.initialStateReady;
   }
 
   getStreams(): PlayerStreams | null {

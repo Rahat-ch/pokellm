@@ -1,0 +1,583 @@
+/* Battle Scene - Main Container */
+.battle-scene {
+  position: relative;
+  width: 75%;
+  margin: 0 auto;
+  min-height: 320px;
+  max-height: 380px;
+  background: linear-gradient(180deg, #87ceeb 0%, #a8d8a8 40%, #88c888 70%, #68a868 100%);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Weather Variants */
+.battle-scene.weather-sun {
+  background: linear-gradient(180deg, #ffd700 0%, #ffec8b 25%, #b8d8a8 50%, #88c888 75%, #68a868 100%);
+}
+
+.battle-scene.weather-rain {
+  background: linear-gradient(180deg, #4a5568 0%, #718096 25%, #7aa87a 50%, #5a8a5a 75%, #4a7a4a 100%);
+}
+
+.battle-scene.weather-sand {
+  background: linear-gradient(180deg, #d4a574 0%, #c9a067 25%, #a8b090 50%, #8a9a7a 75%, #6a8a6a 100%);
+}
+
+.battle-scene.weather-snow {
+  background: linear-gradient(180deg, #e8f0f8 0%, #d0e0f0 25%, #b0d0b0 50%, #90b090 75%, #70a070 100%);
+}
+
+/* Weather/Terrain Badges */
+.weather-badge,
+.terrain-badge {
+  position: absolute;
+  top: 10px;
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 12px;
+  z-index: 10;
+}
+
+.weather-badge {
+  right: 10px;
+}
+
+.terrain-badge {
+  right: 100px;
+}
+
+/* Battle Sides */
+.battle-side {
+  flex: 1;
+  display: flex;
+  position: relative;
+  padding: 8px 16px;
+}
+
+/* Opponent Side - Top */
+.opponent-side {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-top: 50px;
+}
+
+/* Player Side - Bottom */
+.player-side {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-bottom: 8px;
+}
+
+/* Team Area */
+.team-area {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 5;
+}
+
+.team-area.opponent {
+  align-items: flex-start;
+}
+
+.team-area.player {
+  align-items: flex-end;
+}
+
+.trainer-name {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.7);
+  background: rgba(255, 255, 255, 0.3);
+  padding: 2px 8px;
+  border-radius: 8px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pokemon Area */
+.pokemon-area {
+  display: flex;
+  gap: 10px;
+  z-index: 3;
+}
+
+.pokemon-area.opponent {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.pokemon-area.player {
+  flex-direction: row-reverse;
+  align-items: flex-end;
+}
+
+.waiting-pokemon {
+  padding: 20px;
+  color: rgba(0, 0, 0, 0.5);
+  font-style: italic;
+}
+
+/* Sprite Area */
+.sprite-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sprite-area.opponent {
+  margin-right: 10px;
+}
+
+.sprite-area.player {
+  margin-left: 10px;
+}
+
+/* Pokemon Sprite */
+.pokemon-sprite-container {
+  position: relative;
+  z-index: 2;
+}
+
+.pokemon-sprite-container.fainted {
+  opacity: 0.4;
+  filter: grayscale(50%);
+}
+
+.pokemon-sprite {
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.3));
+}
+
+.pokemon-sprite.front {
+  width: 90px;
+  height: auto;
+}
+
+.pokemon-sprite.back {
+  width: 120px;
+  height: auto;
+}
+
+.fainted-x {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 4rem;
+  font-weight: bold;
+  color: #ff0000;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  opacity: 0.8;
+}
+
+/* Shadow under Pokemon */
+.shadow {
+  width: 70px;
+  height: 16px;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  margin-top: -8px;
+}
+
+.shadow.player {
+  width: 90px;
+  height: 20px;
+}
+
+/* Pokemon Info Box */
+.pokemon-info-box {
+  background: linear-gradient(180deg, #505050 0%, #303030 100%);
+  border: 2px solid #202020;
+  border-radius: 6px;
+  padding: 6px 10px;
+  min-width: 140px;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.pokemon-info-box.opponent {
+  /* Top-right positioning handled by flex */
+}
+
+.pokemon-info-box.player {
+  /* Bottom-left positioning handled by flex */
+}
+
+.info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.pokemon-name {
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.pokemon-level {
+  color: #ffd700;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* HP Bar */
+.hp-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hp-bar-bg {
+  flex: 1;
+  height: 8px;
+  background: #202020;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #000;
+}
+
+.hp-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease-out, background 0.3s;
+}
+
+.hp-bar-fill.green {
+  background: linear-gradient(180deg, #4caf50 0%, #2e7d32 100%);
+}
+
+.hp-bar-fill.yellow {
+  background: linear-gradient(180deg, #ffc107 0%, #f57c00 100%);
+}
+
+.hp-bar-fill.red {
+  background: linear-gradient(180deg, #f44336 0%, #b71c1c 100%);
+}
+
+.hp-text {
+  color: #aaa;
+  font-size: 0.7rem;
+  min-width: 50px;
+  text-align: right;
+}
+
+/* Status Row */
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.status-badge {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.boost-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.boost-badge {
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 0.6rem;
+  font-weight: 600;
+}
+
+.boost-badge.up {
+  background: #4caf50;
+  color: white;
+}
+
+.boost-badge.down {
+  background: #f44336;
+  color: white;
+}
+
+/* Move Announcements - One for each side */
+.move-announcement {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  z-index: 20;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Player 1 announcement - bottom area */
+.move-announcement.p1 {
+  bottom: 25%;
+  border-left: 3px solid #4ecdc4;
+  animation: moveAnnounceP1 0.3s ease-out;
+}
+
+/* Player 2 announcement - top area */
+.move-announcement.p2 {
+  top: 25%;
+  border-left: 3px solid #ff6b6b;
+  animation: moveAnnounceP2 0.3s ease-out;
+}
+
+@keyframes moveAnnounceP1 {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes moveAnnounceP2 {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ========== Battle Animations ========== */
+
+/* Switch In - Pokemon appears with bounce */
+@keyframes switch-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Switch Out - Pokemon shrinks and fades */
+@keyframes switch-out {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0) translateY(20px);
+    opacity: 0;
+  }
+}
+
+/* Attack Motion - Player (moves right toward opponent) */
+@keyframes attack-player {
+  0%, 100% {
+    transform: translateX(0) translateY(0);
+  }
+  50% {
+    transform: translateX(40px) translateY(-15px);
+  }
+}
+
+/* Attack Motion - Opponent (moves left toward player) */
+@keyframes attack-opponent {
+  0%, 100% {
+    transform: translateX(0) translateY(0);
+  }
+  50% {
+    transform: translateX(-40px) translateY(15px);
+  }
+}
+
+/* Damage Shake */
+@keyframes damage-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-8px);
+  }
+  40%, 80% {
+    transform: translateX(8px);
+  }
+}
+
+/* Damage Flash - Red tint */
+@keyframes damage-flash {
+  0%, 100% {
+    filter: brightness(1) drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.3));
+  }
+  50% {
+    filter: brightness(1.5) sepia(1) saturate(5) hue-rotate(-30deg) drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.3));
+  }
+}
+
+/* Faint - Grayscale, fall, and fade */
+@keyframes faint {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: grayscale(0) drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.3));
+  }
+  30% {
+    filter: grayscale(100%) drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.3));
+  }
+  100% {
+    transform: translateY(50px) scale(0.6);
+    opacity: 0;
+    filter: grayscale(100%) drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.3));
+  }
+}
+
+/* Super Effective Flash - Yellow/Gold glow */
+@keyframes super-effective {
+  0%, 100% {
+    filter: brightness(1) drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.3));
+  }
+  50% {
+    filter: brightness(1.8) sepia(0.5) saturate(3) drop-shadow(0 0 20px rgba(255, 215, 0, 0.8));
+  }
+}
+
+/* Critical Hit - Enhanced shake */
+@keyframes crit-shake {
+  0%, 100% {
+    transform: translateX(0) scale(1);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-10px) scale(1.02);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(10px) scale(0.98);
+  }
+}
+
+/* Resisted Hit - Muted flash */
+@keyframes resisted {
+  0%, 100% {
+    filter: brightness(1) drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.3));
+  }
+  50% {
+    filter: brightness(0.7) saturate(0.5) drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.3));
+  }
+}
+
+/* Animation Classes */
+.pokemon-sprite-container.switching-in {
+  animation: switch-in 0.5s ease-out;
+}
+
+.pokemon-sprite-container.switching-out {
+  animation: switch-out 0.4s ease-in forwards;
+}
+
+.pokemon-sprite-container.attacking.player {
+  animation: attack-player 0.3s ease-out;
+}
+
+.pokemon-sprite-container.attacking.opponent {
+  animation: attack-opponent 0.3s ease-out;
+}
+
+.pokemon-sprite-container.taking-damage {
+  animation: damage-shake 0.2s ease-in-out, damage-flash 0.2s;
+}
+
+.pokemon-sprite-container.fainting {
+  animation: faint 0.8s ease-in forwards;
+}
+
+.pokemon-sprite-container.super-effective {
+  animation: super-effective 0.3s;
+}
+
+.pokemon-sprite-container.crit {
+  animation: crit-shake 0.3s ease-in-out, damage-flash 0.3s;
+}
+
+.pokemon-sprite-container.resisted {
+  animation: resisted 0.2s;
+}
+
+/* HP Bar critical pulse */
+@keyframes hp-critical-pulse {
+  0%, 100% {
+    box-shadow: none;
+  }
+  50% {
+    box-shadow: 0 0 8px 2px rgba(244, 67, 54, 0.6);
+  }
+}
+
+.hp-bar-bg.critical {
+  animation: hp-critical-pulse 1s infinite;
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+  .battle-scene {
+    min-height: 280px;
+    max-height: 320px;
+  }
+
+  .battle-side {
+    flex-direction: column;
+    padding: 6px 10px;
+  }
+
+  .opponent-side {
+    align-items: stretch;
+  }
+
+  .player-side {
+    align-items: stretch;
+  }
+
+  .pokemon-area {
+    justify-content: center;
+  }
+
+  .team-area {
+    align-items: center !important;
+  }
+
+  .pokemon-sprite.front {
+    width: 70px;
+  }
+
+  .pokemon-sprite.back {
+    width: 90px;
+  }
+
+  .pokemon-info-box {
+    min-width: 120px;
+    padding: 4px 8px;
+  }
+
+  .trainer-name {
+    max-width: 120px;
+  }
+}
