@@ -118,68 +118,10 @@ export class ClaudeAdapter implements LLMAdapter {
 
   async decideWithStreaming(
     context: BattleContext,
-    onChunk: (chunk: string) => void
+    _onChunk: (chunk: string) => void
   ): Promise<LLMResponse> {
-    // Format the battle state
-    let prompt: string;
-    if (context.request.teamPreview) {
-      prompt = BattleFormatter.formatTeamPreview(context.request);
-    } else if (context.request.forceSwitch) {
-      prompt = BattleFormatter.formatForceSwitch(context.request, context.battleLog, context.turn);
-    } else {
-      prompt = BattleFormatter.formatRequest(context.request, context.battleLog, context.turn);
-    }
-
-    const stream = this.client.messages.stream({
-      model: this.model,
-      max_tokens: 500, // More tokens for verbose reasoning
-      temperature: this.temperature,
-      system: STREAMING_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    });
-
-    let fullText = '';
-    let tokensUsed = 0;
-
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta') {
-        const delta = event.delta as { type: string; text?: string };
-        if (delta.type === 'text_delta' && delta.text) {
-          fullText += delta.text;
-          onChunk(delta.text);
-        }
-      } else if (event.type === 'message_delta') {
-        const usage = (event as any).usage;
-        if (usage) {
-          tokensUsed = (usage.input_tokens || 0) + (usage.output_tokens || 0);
-        }
-      }
-    }
-
-    // Parse the ACTION from the response
-    const actionMatch = fullText.match(/ACTION:\s*(move|switch|default)\s*(\d*)/i);
-    let command: string;
-
-    if (actionMatch) {
-      const action = actionMatch[1].toLowerCase();
-      const num = actionMatch[2];
-      command = num ? `${action} ${num}` : action;
-    } else {
-      // Fallback: try to find move/switch pattern
-      const fallbackMatch = fullText.match(/\b(move|switch)\s+(\d+)\b/i);
-      command = fallbackMatch ? `${fallbackMatch[1].toLowerCase()} ${fallbackMatch[2]}` : 'default';
-    }
-
-    return {
-      text: command,
-      reasoning: fullText,
-      tokensUsed,
-    };
+    // No streaming - just return final result
+    return this.decide(context);
   }
 
   destroy(): void {

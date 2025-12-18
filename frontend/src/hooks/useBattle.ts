@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSocket, BattleStartedEvent, BattleThinkingEvent, BattleReasoningEvent, BattleDecisionEvent, BattleUpdateEvent, BattleEndEvent } from './useSocket';
+import { useSocket, BattleStartedEvent, BattleThinkingEvent, BattleReasoningEvent, BattleDecisionEvent, BattleUpdateEvent, BattleEndEvent, BattleDialogueEvent } from './useSocket';
 import { VisualBattleState, createInitialVisualState, updateVisualState } from '../lib/pokemon';
 
 // How long to show move announcements (ms)
@@ -11,7 +11,9 @@ export interface PlayerState {
   thinking: boolean;
   reasoning: string;
   lastDecision?: string;
+  displayChoice?: string;
   decisionTime?: number;
+  decisionHistory: string[];
 }
 
 export interface BattleState {
@@ -31,6 +33,7 @@ const initialPlayerState = (provider: string, model: string): PlayerState => ({
   model,
   thinking: false,
   reasoning: '',
+  decisionHistory: [],
 });
 
 export function useBattle() {
@@ -156,17 +159,23 @@ export function useBattle() {
   // Decision made
   useEffect(() => {
     return on<BattleDecisionEvent>('battle:decision', (data) => {
-      setBattle((prev) => ({
-        ...prev,
-        [data.player]: prev[data.player]
-          ? {
-              ...prev[data.player]!,
-              thinking: false,
-              lastDecision: data.choice,
-              decisionTime: data.time,
-            }
-          : null,
-      }));
+      setBattle((prev) => {
+        const player = prev[data.player];
+        const displayText = data.displayChoice || data.choice;
+        return {
+          ...prev,
+          [data.player]: player
+            ? {
+                ...player,
+                thinking: false,
+                lastDecision: data.choice,
+                displayChoice: displayText,
+                decisionTime: data.time,
+                decisionHistory: [...player.decisionHistory, displayText],
+              }
+            : null,
+        };
+      });
     });
   }, [on]);
 
@@ -249,6 +258,23 @@ export function useBattle() {
         ...prev,
         spectatorCount: data.spectatorCount || prev.spectatorCount,
       }));
+    });
+  }, [on]);
+
+  // Dialogue events (trash talk, reactions, etc.)
+  useEffect(() => {
+    return on<BattleDialogueEvent>('battle:dialogue', (data) => {
+      setBattle((prev) => {
+        const player = prev[data.player];
+        if (!player) return prev;
+        return {
+          ...prev,
+          [data.player]: {
+            ...player,
+            decisionHistory: [...player.decisionHistory, data.text],
+          },
+        };
+      });
     });
   }, [on]);
 

@@ -349,6 +349,28 @@ select:focus {
   margin-top: 0.5rem;
 }
 
+.decision-line {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--bg-secondary);
+  font-family: 'Georgia', serif;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.decision-line:last-child {
+  border-bottom: none;
+}
+
+.decision-line.thinking {
+  color: var(--warning);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
 /* Battle Log - Full Height in Right Column */
 .battle-log {
   background: var(--bg-secondary);

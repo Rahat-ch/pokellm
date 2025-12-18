@@ -15,8 +15,33 @@ export interface LLMPlayerOptions {
   onThinking?: () => void;
   onReasoningChunk?: (chunk: string) => void;
   onReasoningDone?: () => void;
-  onDecision?: (choice: string, reasoning?: string, decisionTime?: number) => void;
+  onDecision?: (choice: string, displayChoice: string, reasoning?: string, decisionTime?: number) => void;
   onError?: (error: Error) => void;
+}
+
+function formatChoiceForDisplay(choice: string, request: any): string {
+  const match = choice.match(/^(move|switch)\s+(\d+)$/i);
+  if (!match) return choice;
+
+  const [, action, numStr] = match;
+  const num = parseInt(numStr, 10);
+
+  if (action.toLowerCase() === 'move') {
+    const activePokemon = request.side?.pokemon?.[0];
+    const pokemonName = activePokemon?.details?.split(',')[0] || 'Pokemon';
+    const moves = request.active?.[0]?.moves;
+    const move = moves?.[num - 1];
+    const moveName = move?.move || `Move ${num}`;
+    return `${pokemonName}, use ${moveName}!`;
+  } else if (action.toLowerCase() === 'switch') {
+    const activePokemon = request.side?.pokemon?.[0];
+    const currentName = activePokemon?.details?.split(',')[0] || 'Pokemon';
+    const targetPokemon = request.side?.pokemon?.[num - 1];
+    const targetName = targetPokemon?.details?.split(',')[0] || 'Pokemon';
+    return `${currentName}, return! Go ${targetName}!`;
+  }
+
+  return choice;
 }
 
 /**
@@ -31,7 +56,7 @@ export class LLMPlayer extends BattlePlayer {
   private onThinking?: () => void;
   private onReasoningChunk?: (chunk: string) => void;
   private onReasoningDone?: () => void;
-  private onDecision?: (choice: string, reasoning?: string, decisionTime?: number) => void;
+  private onDecision?: (choice: string, displayChoice: string, reasoning?: string, decisionTime?: number) => void;
   private onError?: (error: Error) => void;
 
   constructor(
@@ -154,10 +179,11 @@ export class LLMPlayer extends BattlePlayer {
     }
 
     const decisionTime = Date.now() - startTime;
+    const displayChoice = formatChoiceForDisplay(choice, request);
 
     // Notify about the decision
     if (this.onDecision) {
-      this.onDecision(choice, reasoning, decisionTime);
+      this.onDecision(choice, displayChoice, reasoning, decisionTime);
     }
 
     console.log(`[${this.slot}] Submitting choice: ${choice} (${decisionTime}ms${usedFallback ? ', fallback' : ''})`);

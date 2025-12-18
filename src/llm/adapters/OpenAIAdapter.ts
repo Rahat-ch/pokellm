@@ -60,6 +60,7 @@ export class OpenAIAdapter implements LLMAdapter {
   model: string;
   private client: OpenAI;
   private temperature: number;
+  private apiKey: string;
 
   constructor(model: string, temperature = 0.7) {
     this.model = model;
@@ -69,21 +70,80 @@ export class OpenAIAdapter implements LLMAdapter {
       throw new Error('OPENAI_API_KEY is not set');
     }
 
+    this.apiKey = config.llm.openai.apiKey;
     this.client = new OpenAI({
-      apiKey: config.llm.openai.apiKey,
+      apiKey: this.apiKey,
     });
   }
 
-  async decide(context: BattleContext): Promise<LLMResponse> {
-    // Format the battle state
-    let prompt: string;
+  private isResponsesApiModel(): boolean {
+    return this.model.startsWith('gpt-5');
+  }
+
+  private formatPrompt(context: BattleContext): string {
     if (context.request.teamPreview) {
-      prompt = BattleFormatter.formatTeamPreview(context.request);
+      return BattleFormatter.formatTeamPreview(context.request);
     } else if (context.request.forceSwitch) {
-      prompt = BattleFormatter.formatForceSwitch(context.request, context.battleLog, context.turn);
+      return BattleFormatter.formatForceSwitch(context.request, context.battleLog, context.turn);
     } else {
-      prompt = BattleFormatter.formatRequest(context.request, context.battleLog, context.turn);
+      return BattleFormatter.formatRequest(context.request, context.battleLog, context.turn);
     }
+  }
+
+  private async decideWithResponsesApi(context: BattleContext): Promise<LLMResponse> {
+    const prompt = this.formatPrompt(context);
+
+    const res = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: this.model,
+        instructions: SYSTEM_PROMPT,
+        input: prompt,
+        max_output_tokens: 200,
+        temperature: this.temperature
+      })
+    });
+
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(`Responses API error: ${res.status} ${error}`);
+    }
+
+    const data = await res.json() as {
+      output?: Array<{ text?: string; content?: string }>;
+      usage?: { total_tokens?: number };
+    };
+    const text = data.output?.[0]?.text || data.output?.[0]?.content || '';
+
+    const lines = text.trim().split('\n');
+    const command = lines[0];
+    const reasoning = lines.slice(1).join('\n').trim() || undefined;
+
+    return {
+      text: command,
+      reasoning,
+      tokensUsed: data.usage?.total_tokens,
+    };
+  }
+
+  private async decideWithResponsesApiStreaming(
+    context: BattleContext,
+    _onChunk: (chunk: string) => void
+  ): Promise<LLMResponse> {
+    // GPT-5.2 doesn't expose reasoning in stream, so just use non-streaming
+    return this.decideWithResponsesApi(context);
+  }
+
+  async decide(context: BattleContext): Promise<LLMResponse> {
+    if (this.isResponsesApiModel()) {
+      return this.decideWithResponsesApi(context);
+    }
+
+    const prompt = this.formatPrompt(context);
 
     const response = await this.client.chat.completions.create({
       model: this.model,
@@ -103,7 +163,6 @@ export class OpenAIAdapter implements LLMAdapter {
 
     const text = response.choices[0]?.message?.content || '';
 
-    // Try to extract reasoning (anything after the command)
     const lines = text.trim().split('\n');
     const command = lines[0];
     const reasoning = lines.slice(1).join('\n').trim() || undefined;
@@ -117,63 +176,10 @@ export class OpenAIAdapter implements LLMAdapter {
 
   async decideWithStreaming(
     context: BattleContext,
-    onChunk: (chunk: string) => void
+    _onChunk: (chunk: string) => void
   ): Promise<LLMResponse> {
-    // Format the battle state
-    let prompt: string;
-    if (context.request.teamPreview) {
-      prompt = BattleFormatter.formatTeamPreview(context.request);
-    } else if (context.request.forceSwitch) {
-      prompt = BattleFormatter.formatForceSwitch(context.request, context.battleLog, context.turn);
-    } else {
-      prompt = BattleFormatter.formatRequest(context.request, context.battleLog, context.turn);
-    }
-
-    const stream = await this.client.chat.completions.create({
-      model: this.model,
-      max_tokens: 500,
-      temperature: this.temperature,
-      stream: true,
-      messages: [
-        {
-          role: 'system',
-          content: STREAMING_SYSTEM_PROMPT,
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    });
-
-    let fullText = '';
-
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || '';
-      if (content) {
-        fullText += content;
-        onChunk(content);
-      }
-    }
-
-    // Parse the ACTION from the response
-    const actionMatch = fullText.match(/ACTION:\s*(move|switch|default)\s*(\d*)/i);
-    let command: string;
-
-    if (actionMatch) {
-      const action = actionMatch[1].toLowerCase();
-      const num = actionMatch[2];
-      command = num ? `${action} ${num}` : action;
-    } else {
-      // Fallback: try to find move/switch pattern
-      const fallbackMatch = fullText.match(/\b(move|switch)\s+(\d+)\b/i);
-      command = fallbackMatch ? `${fallbackMatch[1].toLowerCase()} ${fallbackMatch[2]}` : 'default';
-    }
-
-    return {
-      text: command,
-      reasoning: fullText,
-    };
+    // No streaming - just return final result
+    return this.decide(context);
   }
 
   destroy(): void {

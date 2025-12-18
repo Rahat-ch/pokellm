@@ -7,19 +7,19 @@ import type { LLMConfig } from '../../llm/types.js';
 const PROVIDER_INFO = {
   claude: {
     name: 'Claude',
-    models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022'],
+    models: ['claude-opus-4-5-20250514', 'claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022'],
   },
   openai: {
     name: 'OpenAI',
-    models: ['gpt-4o', 'gpt-4o-mini'],
+    models: ['gpt-5.2', 'gpt-4o', 'gpt-4o-mini'],
   },
   google: {
     name: 'Gemini',
-    models: ['gemini-2.0-flash', 'gemini-1.5-flash'],
+    models: ['gemini-3-flash-preview', 'gemini-2.0-flash', 'gemini-1.5-flash'],
   },
   xai: {
     name: 'Grok',
-    models: ['grok-3-fast', 'grok-2-latest'],
+    models: ['grok-4-fast', 'grok-3-fast', 'grok-2-latest'],
   },
   deepseek: {
     name: 'DeepSeek',

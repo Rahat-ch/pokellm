@@ -2,7 +2,8 @@ import { EventEmitter } from 'events';
 import { SimulatorBridge } from './SimulatorBridge.js';
 import { LLMPlayer } from './LLMPlayer.js';
 import { AdapterFactory } from '../llm/AdapterFactory.js';
-import type { LLMConfig, LLMAdapter } from '../llm/types.js';
+import type { LLMConfig, LLMAdapter, LLMProvider, DialogueContext } from '../llm/types.js';
+import { DialogueAdapter } from '../llm/DialogueAdapter.js';
 import { config } from '../config.js';
 import {
   emitBattleStarted,
@@ -11,6 +12,7 @@ import {
   emitBattleReasoning,
   emitBattleDecision,
   emitBattleEnd,
+  emitBattleDialogue,
 } from '../server/socket.js';
 import { saveBattle } from '../db/client.js';
 
@@ -39,6 +41,10 @@ class ActiveBattle extends EventEmitter {
   private p2Config: LLMConfig;
   private format: string;
   private battleLog: string[] = [];
+  private p1Dialogue: DialogueAdapter;
+  private p2Dialogue: DialogueAdapter;
+  private lastTrashTalkTurn = 0;
+  private lastMoveUser: 'p1' | 'p2' | null = null;
 
   constructor(
     battleId: string,
@@ -57,6 +63,10 @@ class ActiveBattle extends EventEmitter {
     // Create adapters
     this.p1Adapter = AdapterFactory.create(p1Config);
     this.p2Adapter = AdapterFactory.create(p2Config);
+
+    // Create dialogue adapters (fast models)
+    this.p1Dialogue = new DialogueAdapter(p1Config.provider as LLMProvider);
+    this.p2Dialogue = new DialogueAdapter(p2Config.provider as LLMProvider);
   }
 
   async start(): Promise<void> {
@@ -98,13 +108,14 @@ class ActiveBattle extends EventEmitter {
           done: true,
         });
       },
-      onDecision: (choice, reasoning, time) => {
+      onDecision: (choice, displayChoice, reasoning, time) => {
         this.turn = this.p1Player?.getTurn() || this.turn;
-        this.emit('decision', { player: 'p1', choice, reasoning, time });
+        this.emit('decision', { player: 'p1', choice, displayChoice, reasoning, time });
         emitBattleDecision({
           battleId: this.battleId,
           player: 'p1',
           choice,
+          displayChoice,
           reasoning,
           time: time || 0,
         });
@@ -139,13 +150,14 @@ class ActiveBattle extends EventEmitter {
           done: true,
         });
       },
-      onDecision: (choice, reasoning, time) => {
+      onDecision: (choice, displayChoice, reasoning, time) => {
         this.turn = Math.max(this.turn, this.p2Player?.getTurn() || 0);
-        this.emit('decision', { player: 'p2', choice, reasoning, time });
+        this.emit('decision', { player: 'p2', choice, displayChoice, reasoning, time });
         emitBattleDecision({
           battleId: this.battleId,
           player: 'p2',
           choice,
+          displayChoice,
           reasoning,
           time: time || 0,
         });
@@ -186,20 +198,64 @@ class ActiveBattle extends EventEmitter {
       initialLog,
     });
 
+    // Generate battle start dialogue for both players
+    this.generateDialogue('p1', {
+      type: 'battle_start',
+      opponent: { provider: this.p2Config.provider, model: this.p2Config.model },
+      turn: 0,
+    });
+    this.generateDialogue('p2', {
+      type: 'battle_start',
+      opponent: { provider: this.p1Config.provider, model: this.p1Config.model },
+      turn: 0,
+    });
+
     // Start both players (they will listen for requests)
     void this.p1Player.start();
     void this.p2Player.start();
   }
 
+  private async generateDialogue(player: 'p1' | 'p2', context: DialogueContext): Promise<void> {
+    const adapter = player === 'p1' ? this.p1Dialogue : this.p2Dialogue;
+    try {
+      const text = await adapter.generateDialogue(context);
+      if (text) {
+        emitBattleDialogue({
+          battleId: this.battleId,
+          player,
+          text,
+          eventType: context.type,
+        });
+      }
+    } catch (error) {
+      console.error(`[Dialogue] Error generating ${context.type} for ${player}:`, error);
+    }
+  }
+
   private logBattleEvents(chunk: string): void {
     const lines = chunk.split('\n');
+    let lastMoveName: string | null = null;
+
     for (const line of lines) {
       // Turn marker
       if (line.startsWith('|turn|')) {
-        const turn = line.split('|')[2];
+        const turnNum = parseInt(line.split('|')[2], 10);
+        this.turn = turnNum;
         console.log(`\n${'='.repeat(50)}`);
-        console.log(`  TURN ${turn}`);
+        console.log(`  TURN ${turnNum}`);
         console.log(`${'='.repeat(50)}`);
+
+        // Random trash talk (20% chance, min 3 turns apart)
+        if (turnNum - this.lastTrashTalkTurn >= 3 && Math.random() < 0.2) {
+          this.lastTrashTalkTurn = turnNum;
+          const trasher = Math.random() < 0.5 ? 'p1' : 'p2';
+          const opponent = trasher === 'p1' ? this.p2Config : this.p1Config;
+          this.generateDialogue(trasher, {
+            type: 'trash_talk',
+            opponent: { provider: opponent.provider, model: opponent.model },
+            turn: turnNum,
+          });
+        }
       }
       // Pokemon switch
       else if (line.startsWith('|switch|') || line.startsWith('|drag|')) {
@@ -209,12 +265,14 @@ class ActiveBattle extends EventEmitter {
         const hp = parts[4];
         console.log(`  🔄 ${pokemon} sent out! (${details}) [${hp}]`);
       }
-      // Move used
+      // Move used - track who used it
       else if (line.startsWith('|move|')) {
         const parts = line.split('|');
         const attacker = parts[2];
         const move = parts[3];
         const target = parts[4] || '';
+        lastMoveName = move;
+        this.lastMoveUser = attacker.startsWith('p1') ? 'p1' : 'p2';
         console.log(`  ⚔️  ${attacker} used ${move}${target ? ` on ${target}` : ''}`);
       }
       // Damage
@@ -235,11 +293,40 @@ class ActiveBattle extends EventEmitter {
       // Faint
       else if (line.startsWith('|faint|')) {
         const pokemon = line.split('|')[2];
+        const faintedSide = pokemon.startsWith('p1') ? 'p1' : 'p2';
+        const pokemonName = pokemon.split(':')[1]?.trim() || 'Pokemon';
         console.log(`  ☠️  ${pokemon} fainted!`);
+
+        // Own faint for the player who lost, opponent faint for the other
+        const opponent = faintedSide === 'p1' ? this.p2Config : this.p1Config;
+        this.generateDialogue(faintedSide, {
+          type: 'own_faint',
+          opponent: { provider: opponent.provider, model: opponent.model },
+          ownPokemon: pokemonName,
+          turn: this.turn,
+        });
+
+        const winnerSide = faintedSide === 'p1' ? 'p2' : 'p1';
+        const winnerOpponent = winnerSide === 'p1' ? this.p2Config : this.p1Config;
+        this.generateDialogue(winnerSide, {
+          type: 'opponent_faint',
+          opponent: { provider: winnerOpponent.provider, model: winnerOpponent.model },
+          opponentPokemon: pokemonName,
+          turn: this.turn,
+        });
       }
       // Super effective
       else if (line.startsWith('|-supereffective|')) {
         console.log(`  ✨ It's super effective!`);
+        if (this.lastMoveUser) {
+          const opponent = this.lastMoveUser === 'p1' ? this.p2Config : this.p1Config;
+          this.generateDialogue(this.lastMoveUser, {
+            type: 'super_effective',
+            opponent: { provider: opponent.provider, model: opponent.model },
+            moveName: lastMoveName || 'attack',
+            turn: this.turn,
+          });
+        }
       }
       // Not very effective
       else if (line.startsWith('|-resisted|')) {
@@ -248,6 +335,14 @@ class ActiveBattle extends EventEmitter {
       // Critical hit
       else if (line.startsWith('|-crit|')) {
         console.log(`  💢 Critical hit!`);
+        if (this.lastMoveUser) {
+          const opponent = this.lastMoveUser === 'p1' ? this.p2Config : this.p1Config;
+          this.generateDialogue(this.lastMoveUser, {
+            type: 'critical_hit',
+            opponent: { provider: opponent.provider, model: opponent.model },
+            turn: this.turn,
+          });
+        }
       }
       // Miss
       else if (line.startsWith('|-miss|')) {
@@ -295,6 +390,19 @@ class ActiveBattle extends EventEmitter {
         console.log(`\n${'🏆'.repeat(10)}`);
         console.log(`  WINNER: ${winner}`);
         console.log(`${'🏆'.repeat(10)}\n`);
+
+        // Determine winner/loser sides
+        const p1Won = winner.includes(this.p1Config.provider);
+        this.generateDialogue('p1', {
+          type: p1Won ? 'win' : 'loss',
+          opponent: { provider: this.p2Config.provider, model: this.p2Config.model },
+          turn: this.turn,
+        });
+        this.generateDialogue('p2', {
+          type: p1Won ? 'loss' : 'win',
+          opponent: { provider: this.p1Config.provider, model: this.p1Config.model },
+          turn: this.turn,
+        });
       }
     }
   }
@@ -311,6 +419,8 @@ class ActiveBattle extends EventEmitter {
   private cleanup(): void {
     this.p1Adapter.destroy();
     this.p2Adapter.destroy();
+    this.p1Dialogue.destroy();
+    this.p2Dialogue.destroy();
     this.bridge.destroy();
   }
 

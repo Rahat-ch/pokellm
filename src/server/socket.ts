@@ -33,6 +33,7 @@ export interface BattleDecisionPayload {
   battleId: string;
   player: 'p1' | 'p2';
   choice: string;
+  displayChoice?: string;
   reasoning?: string;
   time: number;
 }
@@ -53,6 +54,13 @@ export interface BattleStatusPayload {
   winner?: string | null;
   spectatorCount?: number;
   battleLog?: string[];  // Protocol history for late joiners
+}
+
+export interface BattleDialoguePayload {
+  battleId: string;
+  player: 'p1' | 'p2';
+  text: string;
+  eventType: string;
 }
 
 /**
@@ -153,4 +161,8 @@ export function emitBattleStatus(payload: BattleStatusPayload): void {
     ...payload,
     spectatorCount: getSpectatorCount(),
   });
+}
+
+export function emitBattleDialogue(payload: BattleDialoguePayload): void {
+  io?.emit('battle:dialogue', payload);
 }

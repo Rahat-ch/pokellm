@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import type { LLMAdapter, LLMResponse, BattleContext } from '../types.js';
 import { BattleFormatter } from '../../battle/BattleFormatter.js';
 import { config } from '../../config.js';
@@ -58,7 +59,8 @@ Be strategic and explain your reasoning clearly.`;
 export class GeminiAdapter implements LLMAdapter {
   provider = 'google' as const;
   model: string;
-  private client: GoogleGenerativeAI;
+  private client: GoogleGenerativeAI | null = null;
+  private newClient: GoogleGenAI | null = null;
   private temperature: number;
 
   constructor(model: string, temperature = 0.7) {
@@ -69,7 +71,15 @@ export class GeminiAdapter implements LLMAdapter {
       throw new Error('GOOGLE_AI_API_KEY is not set');
     }
 
-    this.client = new GoogleGenerativeAI(config.llm.google.apiKey);
+    if (this.isGemini3Model()) {
+      this.newClient = new GoogleGenAI({ apiKey: config.llm.google.apiKey });
+    } else {
+      this.client = new GoogleGenerativeAI(config.llm.google.apiKey);
+    }
+  }
+
+  private isGemini3Model(): boolean {
+    return this.model.startsWith('gemini-3');
   }
 
   async decide(context: BattleContext): Promise<LLMResponse> {
@@ -83,7 +93,11 @@ export class GeminiAdapter implements LLMAdapter {
       prompt = BattleFormatter.formatRequest(context.request, context.battleLog, context.turn);
     }
 
-    const generativeModel = this.client.getGenerativeModel({
+    if (this.isGemini3Model()) {
+      return this.decideWithNewSdk(prompt);
+    }
+
+    const generativeModel = this.client!.getGenerativeModel({
       model: this.model,
       generationConfig: {
         temperature: this.temperature,
@@ -111,59 +125,30 @@ export class GeminiAdapter implements LLMAdapter {
     };
   }
 
-  async decideWithStreaming(
-    context: BattleContext,
-    onChunk: (chunk: string) => void
-  ): Promise<LLMResponse> {
-    // Format the battle state
-    let prompt: string;
-    if (context.request.teamPreview) {
-      prompt = BattleFormatter.formatTeamPreview(context.request);
-    } else if (context.request.forceSwitch) {
-      prompt = BattleFormatter.formatForceSwitch(context.request, context.battleLog, context.turn);
-    } else {
-      prompt = BattleFormatter.formatRequest(context.request, context.battleLog, context.turn);
-    }
-
-    const generativeModel = this.client.getGenerativeModel({
+  private async decideWithNewSdk(prompt: string): Promise<LLMResponse> {
+    const fullPrompt = `${SYSTEM_PROMPT}\n\n${prompt}`;
+    const response = await this.newClient!.models.generateContent({
       model: this.model,
-      generationConfig: {
-        temperature: this.temperature,
-        maxOutputTokens: 500,
-      },
-      systemInstruction: STREAMING_SYSTEM_PROMPT,
+      contents: fullPrompt,
     });
 
-    const result = await generativeModel.generateContentStream(prompt);
-
-    let fullText = '';
-
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (text) {
-        fullText += text;
-        onChunk(text);
-      }
-    }
-
-    // Parse the ACTION from the response
-    const actionMatch = fullText.match(/ACTION:\s*(move|switch|default)\s*(\d*)/i);
-    let command: string;
-
-    if (actionMatch) {
-      const action = actionMatch[1].toLowerCase();
-      const num = actionMatch[2];
-      command = num ? `${action} ${num}` : action;
-    } else {
-      // Fallback: try to find move/switch pattern
-      const fallbackMatch = fullText.match(/\b(move|switch)\s+(\d+)\b/i);
-      command = fallbackMatch ? `${fallbackMatch[1].toLowerCase()} ${fallbackMatch[2]}` : 'default';
-    }
+    const text = response.text || '';
+    const lines = text.trim().split('\n');
+    const command = lines[0];
+    const reasoning = lines.slice(1).join('\n').trim() || undefined;
 
     return {
       text: command,
-      reasoning: fullText,
+      reasoning,
     };
+  }
+
+  async decideWithStreaming(
+    context: BattleContext,
+    _onChunk: (chunk: string) => void
+  ): Promise<LLMResponse> {
+    // No streaming - just return final result
+    return this.decide(context);
   }
 
   destroy(): void {

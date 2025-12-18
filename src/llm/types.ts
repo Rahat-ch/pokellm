@@ -33,3 +33,26 @@ export interface LLMAdapter {
   ): Promise<LLMResponse>;
   destroy(): void;
 }
+
+export type DialogueEventType =
+  | 'battle_start'
+  | 'own_faint'
+  | 'opponent_faint'
+  | 'super_effective'
+  | 'critical_hit'
+  | 'win'
+  | 'loss'
+  | 'trash_talk';
+
+export interface DialogueContext {
+  type: DialogueEventType;
+  opponent: { provider: string; model: string };
+  ownPokemon?: string;
+  opponentPokemon?: string;
+  moveName?: string;
+  turn: number;
+  ownHpPercent?: number;
+  opponentHpPercent?: number;
+  ownTeamRemaining?: number;
+  opponentTeamRemaining?: number;
+}

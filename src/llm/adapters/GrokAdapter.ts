@@ -119,63 +119,10 @@ export class GrokAdapter implements LLMAdapter {
 
   async decideWithStreaming(
     context: BattleContext,
-    onChunk: (chunk: string) => void
+    _onChunk: (chunk: string) => void
   ): Promise<LLMResponse> {
-    // Format the battle state
-    let prompt: string;
-    if (context.request.teamPreview) {
-      prompt = BattleFormatter.formatTeamPreview(context.request);
-    } else if (context.request.forceSwitch) {
-      prompt = BattleFormatter.formatForceSwitch(context.request, context.battleLog, context.turn);
-    } else {
-      prompt = BattleFormatter.formatRequest(context.request, context.battleLog, context.turn);
-    }
-
-    const stream = await this.client.chat.completions.create({
-      model: this.model,
-      max_tokens: 500,
-      temperature: this.temperature,
-      stream: true,
-      messages: [
-        {
-          role: 'system',
-          content: STREAMING_SYSTEM_PROMPT,
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    });
-
-    let fullText = '';
-
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || '';
-      if (content) {
-        fullText += content;
-        onChunk(content);
-      }
-    }
-
-    // Parse the ACTION from the response
-    const actionMatch = fullText.match(/ACTION:\s*(move|switch|default)\s*(\d*)/i);
-    let command: string;
-
-    if (actionMatch) {
-      const action = actionMatch[1].toLowerCase();
-      const num = actionMatch[2];
-      command = num ? `${action} ${num}` : action;
-    } else {
-      // Fallback: try to find move/switch pattern
-      const fallbackMatch = fullText.match(/\b(move|switch)\s+(\d+)\b/i);
-      command = fallbackMatch ? `${fallbackMatch[1].toLowerCase()} ${fallbackMatch[2]}` : 'default';
-    }
-
-    return {
-      text: command,
-      reasoning: fullText,
-    };
+    // No streaming - just return final result
+    return this.decide(context);
   }
 
   destroy(): void {

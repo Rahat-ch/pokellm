@@ -37,6 +37,7 @@ export interface BattleDecisionEvent {
   battleId: string;
   player: 'p1' | 'p2';
   choice: string;
+  displayChoice?: string;
   reasoning?: string;
   time: number;
 }
@@ -51,6 +52,13 @@ export interface BattleEndEvent {
   winner: string | null;
   p1: { provider: string; model: string };
   p2: { provider: string; model: string };
+}
+
+export interface BattleDialogueEvent {
+  battleId: string;
+  player: 'p1' | 'p2';
+  text: string;
+  eventType: string;
 }
 
 export function useSocket() {

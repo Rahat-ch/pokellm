@@ -29,18 +29,18 @@ export function Battle() {
     processBattleLog(battle.log);
   }, [battle.log, processBattleLog]);
 
-  // Auto-scroll reasoning boxes
+  // Auto-scroll dialogue boxes when new decisions/dialogue added
   useEffect(() => {
     if (p1ReasoningRef.current) {
       p1ReasoningRef.current.scrollTop = p1ReasoningRef.current.scrollHeight;
     }
-  }, [battle.p1?.reasoning]);
+  }, [battle.p1?.decisionHistory]);
 
   useEffect(() => {
     if (p2ReasoningRef.current) {
       p2ReasoningRef.current.scrollTop = p2ReasoningRef.current.scrollHeight;
     }
-  }, [battle.p2?.reasoning]);
+  }, [battle.p2?.decisionHistory]);
 
   // Start music when battle becomes active
   useEffect(() => {
@@ -138,18 +138,19 @@ export function Battle() {
               ref={p1ReasoningRef}
               className={`reasoning-box ${battle.p1?.thinking ? 'streaming' : ''}`}
             >
-              {battle.p1?.reasoning || (
+              {battle.p1?.decisionHistory && battle.p1.decisionHistory.length > 0 ? (
+                battle.p1.decisionHistory.map((decision, i) => (
+                  <div key={i} className="decision-line">{decision}</div>
+                ))
+              ) : (
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  Waiting for reasoning...
+                  Waiting for orders...
                 </span>
               )}
+              {battle.p1?.thinking && (
+                <div className="decision-line thinking">...</div>
+              )}
             </div>
-
-            {battle.p1?.lastDecision && (
-              <div className="decision-badge">
-                {battle.p1.lastDecision} ({battle.p1.decisionTime}ms)
-              </div>
-            )}
           </div>
 
           {/* Player 2 Panel */}
@@ -170,18 +171,19 @@ export function Battle() {
               ref={p2ReasoningRef}
               className={`reasoning-box ${battle.p2?.thinking ? 'streaming' : ''}`}
             >
-              {battle.p2?.reasoning || (
+              {battle.p2?.decisionHistory && battle.p2.decisionHistory.length > 0 ? (
+                battle.p2.decisionHistory.map((decision, i) => (
+                  <div key={i} className="decision-line">{decision}</div>
+                ))
+              ) : (
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  Waiting for reasoning...
+                  Waiting for orders...
                 </span>
               )}
+              {battle.p2?.thinking && (
+                <div className="decision-line thinking">...</div>
+              )}
             </div>
-
-            {battle.p2?.lastDecision && (
-              <div className="decision-badge">
-                {battle.p2.lastDecision} ({battle.p2.decisionTime}ms)
-              </div>
-            )}
           </div>
         </div>
 
